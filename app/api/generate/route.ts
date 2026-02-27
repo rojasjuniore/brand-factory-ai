@@ -97,11 +97,15 @@ Responde ÚNICAMENTE con JSON válido (sin markdown, sin explicaciones) con esta
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { brand_name, industry, mission, target_audience, values, tone, differentiators } = body;
+    const { 
+      brand_name, industry, mission, target_audience, values, tone, differentiators,
+      competitors, visual_style, logo_style, color_preference, website_vision
+    } = body;
 
     const userPrompt = `
 BRIEF DE MARCA:
 
+INFORMACIÓN BÁSICA:
 - Nombre: ${brand_name}
 - Industria: ${industry}
 - Misión: ${mission}
@@ -109,8 +113,15 @@ BRIEF DE MARCA:
 - Valores: ${values}
 - Tono deseado: ${tone}
 - Diferenciadores: ${differentiators}
+${competitors ? `- Competencia: ${competitors}` : ''}
 
-Genera la estrategia completa de branding para esta marca.`;
+PREFERENCIAS VISUALES:
+${visual_style ? `- Estilo visual deseado: ${visual_style}` : ''}
+${logo_style ? `- Tipo de logo preferido: ${logo_style}` : ''}
+${color_preference ? `- Preferencia de colores: ${color_preference}` : ''}
+${website_vision ? `- Visión del sitio web: ${website_vision}` : ''}
+
+Genera la estrategia completa de branding para esta marca, teniendo en cuenta todas las preferencias visuales mencionadas.`;
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",

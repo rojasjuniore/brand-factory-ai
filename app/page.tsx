@@ -43,24 +43,42 @@ interface BrandData {
   };
 }
 
+interface FormData {
+  brand_name: string;
+  industry: string;
+  mission: string;
+  target_audience: string;
+  values: string;
+  tone: string;
+  differentiators: string;
+  competitors: string;
+  visual_style: string;
+  logo_style: string;
+  color_preference: string;
+  website_vision: string;
+}
+
 export default function Home() {
   const [step, setStep] = useState<"form" | "loading" | "results">("form");
   const [activeTab, setActiveTab] = useState("strategy");
   const [brandData, setBrandData] = useState<BrandData | null>(null);
   const [loadingStep, setLoadingStep] = useState(1);
+  const [logos, setLogos] = useState<string[]>([]);
+  const [generatingLogos, setGeneratingLogos] = useState(false);
+  const [formData, setFormData] = useState<FormData | null>(null);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries());
+    const form = new FormData(e.currentTarget);
+    const data = Object.fromEntries(form.entries()) as unknown as FormData;
+    setFormData(data);
 
     setStep("loading");
     setLoadingStep(1);
 
-    // Simulate progress
     const progressInterval = setInterval(() => {
       setLoadingStep((prev) => (prev < 4 ? prev + 1 : prev));
-    }, 2000);
+    }, 2500);
 
     try {
       const response = await fetch("/api/generate", {
@@ -75,6 +93,9 @@ export default function Home() {
       clearInterval(progressInterval);
       setBrandData(result);
       setStep("results");
+
+      // Auto-generate first logo
+      generateLogo(data);
     } catch (error) {
       clearInterval(progressInterval);
       alert("Error al generar la marca. Por favor intenta de nuevo.");
@@ -83,16 +104,42 @@ export default function Home() {
     }
   };
 
-  const getPlatformEmoji = (name: string) => {
-    const emojis: Record<string, string> = {
-      instagram: "camera",
-      tiktok: "music",
-      linkedin: "briefcase",
-      twitter: "bird",
-      facebook: "users",
-      youtube: "video",
-    };
-    return emojis[name?.toLowerCase()] || "smartphone";
+  const generateLogo = async (data: FormData) => {
+    setGeneratingLogos(true);
+    try {
+      const colors = brandData?.identidad_visual?.paleta_colores;
+      const colorStr = colors
+        ? `${colors.primario?.hex}, ${colors.secundario?.hex}, ${colors.acento?.hex}`
+        : data.color_preference;
+
+      const response = await fetch("/api/logo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand_name: data.brand_name,
+          industry: data.industry,
+          tone: data.tone,
+          visual_style: data.visual_style,
+          colors: colorStr,
+          logo_style: data.logo_style,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success && result.image) {
+        setLogos((prev) => [...prev, result.image]);
+      }
+    } catch (error) {
+      console.error("Logo generation error:", error);
+    } finally {
+      setGeneratingLogos(false);
+    }
+  };
+
+  const generateMoreLogos = () => {
+    if (formData) {
+      generateLogo(formData);
+    }
   };
 
   return (
@@ -107,7 +154,7 @@ export default function Home() {
             <span className="font-semibold text-xl">Brand Factory</span>
           </div>
           <span className="text-gray-500 text-sm hidden md:block">
-            Powered by Claude AI
+            Powered by Claude AI + Gemini
           </span>
         </div>
       </header>
@@ -125,12 +172,18 @@ export default function Home() {
                 con IA
               </h1>
               <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-                Estrategia + Identidad Visual + Plan Digital. Todo en minutos.
+                Estrategia + Identidad Visual + Plan Digital + Logo. Todo en minutos.
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="card-glass rounded-3xl p-8 max-w-2xl mx-auto">
+            <form onSubmit={handleSubmit} className="card-glass rounded-3xl p-8 max-w-3xl mx-auto">
               <div className="grid gap-6">
+                {/* Section: Informacion Basica */}
+                <div className="border-b border-white/10 pb-4 mb-2">
+                  <h2 className="text-lg font-semibold text-indigo-400 mb-1">Informacion Basica</h2>
+                  <p className="text-sm text-gray-500">Cuentanos sobre tu marca</p>
+                </div>
+
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -159,9 +212,7 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Mision *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Mision *</label>
                   <textarea
                     name="mission"
                     required
@@ -186,47 +237,29 @@ export default function Home() {
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Valores *
-                    </label>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Valores *</label>
                     <input
                       type="text"
                       name="values"
                       required
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-indigo-500 outline-none transition"
-                      placeholder="Ej: Calidad, Innovacion"
+                      placeholder="Ej: Calidad, Innovacion, Sostenibilidad"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Tono *
-                    </label>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Tono *</label>
                     <select
                       name="tone"
                       required
                       className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-indigo-500 outline-none transition cursor-pointer"
                     >
-                      <option value="" className="bg-gray-900">
-                        Selecciona
-                      </option>
-                      <option value="profesional y serio" className="bg-gray-900">
-                        Profesional
-                      </option>
-                      <option value="amigable y cercano" className="bg-gray-900">
-                        Amigable
-                      </option>
-                      <option value="lujoso y exclusivo" className="bg-gray-900">
-                        Lujoso
-                      </option>
-                      <option value="innovador y disruptivo" className="bg-gray-900">
-                        Innovador
-                      </option>
-                      <option value="calido y empatico" className="bg-gray-900">
-                        Calido
-                      </option>
-                      <option value="divertido y juvenil" className="bg-gray-900">
-                        Divertido
-                      </option>
+                      <option value="" className="bg-gray-900">Selecciona</option>
+                      <option value="profesional y serio" className="bg-gray-900">Profesional</option>
+                      <option value="amigable y cercano" className="bg-gray-900">Amigable</option>
+                      <option value="lujoso y exclusivo" className="bg-gray-900">Lujoso</option>
+                      <option value="innovador y disruptivo" className="bg-gray-900">Innovador</option>
+                      <option value="calido y empatico" className="bg-gray-900">Calido</option>
+                      <option value="divertido y juvenil" className="bg-gray-900">Divertido</option>
                     </select>
                   </div>
                 </div>
@@ -244,18 +277,94 @@ export default function Home() {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Competencia (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    name="competitors"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-indigo-500 outline-none transition"
+                    placeholder="Menciona 2-3 competidores principales"
+                  />
+                </div>
+
+                {/* Section: Identidad Visual */}
+                <div className="border-b border-white/10 pb-4 mb-2 mt-4">
+                  <h2 className="text-lg font-semibold text-purple-400 mb-1">Identidad Visual</h2>
+                  <p className="text-sm text-gray-500">Como imaginas tu marca visualmente</p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Estilo Visual
+                    </label>
+                    <select
+                      name="visual_style"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                    >
+                      <option value="" className="bg-gray-900">Selecciona</option>
+                      <option value="minimalista y limpio" className="bg-gray-900">Minimalista</option>
+                      <option value="moderno y tech" className="bg-gray-900">Moderno/Tech</option>
+                      <option value="elegante y lujoso" className="bg-gray-900">Elegante/Lujoso</option>
+                      <option value="organico y natural" className="bg-gray-900">Organico/Natural</option>
+                      <option value="retro y vintage" className="bg-gray-900">Retro/Vintage</option>
+                      <option value="bold y expresivo" className="bg-gray-900">Bold/Expresivo</option>
+                      <option value="corporativo y profesional" className="bg-gray-900">Corporativo</option>
+                      <option value="juvenil y colorido" className="bg-gray-900">Juvenil/Colorido</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Tipo de Logo
+                    </label>
+                    <select
+                      name="logo_style"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                    >
+                      <option value="" className="bg-gray-900">Selecciona</option>
+                      <option value="wordmark tipografico" className="bg-gray-900">Wordmark (solo texto)</option>
+                      <option value="lettermark iniciales" className="bg-gray-900">Lettermark (iniciales)</option>
+                      <option value="icono con texto" className="bg-gray-900">Icono + Texto</option>
+                      <option value="solo icono simbolico" className="bg-gray-900">Solo Icono</option>
+                      <option value="emblema o escudo" className="bg-gray-900">Emblema/Escudo</option>
+                      <option value="mascota o personaje" className="bg-gray-900">Mascota</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Preferencia de Colores (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    name="color_preference"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-indigo-500 outline-none transition"
+                    placeholder="Ej: Azules profesionales, verdes naturales, colores tierra..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Como imaginas tu pagina web? (opcional)
+                  </label>
+                  <textarea
+                    name="website_vision"
+                    rows={2}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-indigo-500 outline-none transition resize-none"
+                    placeholder="Describe como te gustaria que se vea y sienta tu sitio web..."
+                  />
+                </div>
+
                 <button
                   type="submit"
                   className="w-full py-4 btn-primary text-white font-semibold rounded-xl transition-all shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2"
                 >
                   <span>Crear Mi Marca</span>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                 </button>
               </div>
@@ -311,6 +420,7 @@ export default function Home() {
                 { id: "strategy", label: "Estrategia" },
                 { id: "visual", label: "Identidad Visual" },
                 { id: "digital", label: "Plan Digital" },
+                { id: "preview", label: "Logo Preview" },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -330,18 +440,8 @@ export default function Home() {
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="card-glass rounded-2xl p-6">
                     <h3 className="text-lg font-semibold text-indigo-400 mb-4 flex items-center gap-2">
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 10V3L4 14h7v7l9-11h-7z"
-                        />
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
                       Posicionamiento
                     </h3>
@@ -352,18 +452,8 @@ export default function Home() {
 
                   <div className="card-glass rounded-2xl p-6">
                     <h3 className="text-lg font-semibold text-purple-400 mb-4 flex items-center gap-2">
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       Propuesta de Valor
                     </h3>
@@ -404,10 +494,7 @@ export default function Home() {
                     <h3 className="text-lg font-semibold text-cyan-400 mb-4">Keywords de Marca</h3>
                     <div className="flex flex-wrap gap-2">
                       {brandData.keywords.map((k, i) => (
-                        <span
-                          key={i}
-                          className="px-3 py-1 bg-cyan-500/20 text-cyan-300 rounded-full text-sm"
-                        >
+                        <span key={i} className="px-3 py-1 bg-cyan-500/20 text-cyan-300 rounded-full text-sm">
                           {k}
                         </span>
                       ))}
@@ -421,16 +508,13 @@ export default function Home() {
                     {brandData.buyer_personas.map((p, i) => (
                       <div key={i} className="card-glass rounded-xl p-4">
                         <h4 className="font-semibold text-indigo-300 mb-2">{p.nombre}</h4>
-                        <p className="text-sm text-gray-400 mb-2">
-                          {p.edad} - {p.ocupacion}
-                        </p>
+                        <p className="text-sm text-gray-400 mb-2">{p.edad} - {p.ocupacion}</p>
                         <div className="text-xs text-gray-500">
                           <p className="mb-1">
                             <span className="text-red-400">Dolores:</span> {p.dolores.join(", ")}
                           </p>
                           <p>
-                            <span className="text-green-400">Motivaciones:</span>{" "}
-                            {p.motivaciones.join(", ")}
+                            <span className="text-green-400">Motivaciones:</span> {p.motivaciones.join(", ")}
                           </p>
                         </div>
                       </div>
@@ -447,16 +531,12 @@ export default function Home() {
                   <h3 className="text-xl font-semibold mb-6">Paleta de Colores</h3>
                   <div className="flex flex-wrap gap-6 justify-center">
                     {["primario", "secundario", "acento"].map((colorKey) => {
-                      const color =
-                        brandData.identidad_visual.paleta_colores[
-                          colorKey as keyof typeof brandData.identidad_visual.paleta_colores
-                        ];
+                      const color = brandData.identidad_visual.paleta_colores[
+                        colorKey as keyof typeof brandData.identidad_visual.paleta_colores
+                      ];
                       return (
                         <div key={colorKey} className="text-center">
-                          <div
-                            className="color-swatch mx-auto mb-3"
-                            style={{ backgroundColor: color.hex }}
-                          ></div>
+                          <div className="color-swatch mx-auto mb-3" style={{ backgroundColor: color.hex }}></div>
                           <p className="font-medium capitalize">{colorKey}</p>
                           <p className="text-sm text-gray-400">{color.hex}</p>
                           <p className="text-xs text-gray-500 mt-1">{color.significado}</p>
@@ -470,34 +550,22 @@ export default function Home() {
                   <h3 className="text-xl font-semibold mb-6">Tipografia</h3>
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="text-center">
-                      <p className="text-3xl mb-2">
-                        {brandData.identidad_visual.tipografia.primaria.font}
-                      </p>
-                      <p className="text-sm text-gray-400">
-                        Titulos - {brandData.identidad_visual.tipografia.primaria.uso}
-                      </p>
+                      <p className="text-3xl mb-2">{brandData.identidad_visual.tipografia.primaria.font}</p>
+                      <p className="text-sm text-gray-400">Titulos - {brandData.identidad_visual.tipografia.primaria.uso}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-3xl mb-2">
-                        {brandData.identidad_visual.tipografia.secundaria.font}
-                      </p>
-                      <p className="text-sm text-gray-400">
-                        Cuerpo - {brandData.identidad_visual.tipografia.secundaria.uso}
-                      </p>
+                      <p className="text-3xl mb-2">{brandData.identidad_visual.tipografia.secundaria.font}</p>
+                      <p className="text-sm text-gray-400">Cuerpo - {brandData.identidad_visual.tipografia.secundaria.uso}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="card-glass rounded-2xl p-6">
                   <h3 className="text-xl font-semibold mb-4">Estilo Visual</h3>
-                  <p className="text-gray-300 text-lg mb-4">
-                    {brandData.identidad_visual.estilo_visual.aesthetic}
-                  </p>
+                  <p className="text-gray-300 text-lg mb-4">{brandData.identidad_visual.estilo_visual.aesthetic}</p>
                   <div className="flex flex-wrap gap-2">
                     {brandData.identidad_visual.estilo_visual.elementos_graficos.map((e, i) => (
-                      <span key={i} className="px-3 py-1 bg-white/10 rounded-full text-sm">
-                        {e}
-                      </span>
+                      <span key={i} className="px-3 py-1 bg-white/10 rounded-full text-sm">{e}</span>
                     ))}
                   </div>
                 </div>
@@ -513,13 +581,7 @@ export default function Home() {
                     {brandData.estrategia_digital.plataformas.slice(0, 3).map((p, i) => (
                       <div key={i} className="card-glass rounded-xl p-4 text-center">
                         <p className="text-2xl mb-2">
-                          {p.nombre === "Instagram"
-                            ? "📸"
-                            : p.nombre === "TikTok"
-                            ? "🎵"
-                            : p.nombre === "LinkedIn"
-                            ? "💼"
-                            : "📱"}
+                          {p.nombre === "Instagram" ? "📸" : p.nombre === "TikTok" ? "🎵" : p.nombre === "LinkedIn" ? "💼" : "📱"}
                         </p>
                         <p className="font-semibold">{p.nombre}</p>
                         <p className="text-sm text-gray-400">{p.frecuencia}</p>
@@ -546,9 +608,7 @@ export default function Home() {
                 </div>
 
                 <div className="card-glass rounded-2xl p-6 mb-6">
-                  <h3 className="text-xl font-semibold mb-4">
-                    Calendario de Contenido (Primera Semana)
-                  </h3>
+                  <h3 className="text-xl font-semibold mb-4">Calendario de Contenido (Primera Semana)</h3>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -580,9 +640,7 @@ export default function Home() {
                       <p className="text-sm text-indigo-400 mb-2">Branded</p>
                       <div className="flex flex-wrap gap-2">
                         {brandData.estrategia_digital.hashtags.branded.map((h, i) => (
-                          <span key={i} className="text-sm text-gray-300">
-                            {h}
-                          </span>
+                          <span key={i} className="text-sm text-gray-300">{h}</span>
                         ))}
                       </div>
                     </div>
@@ -590,14 +648,64 @@ export default function Home() {
                       <p className="text-sm text-purple-400 mb-2">Comunidad</p>
                       <div className="flex flex-wrap gap-2">
                         {brandData.estrategia_digital.hashtags.comunidad.map((h, i) => (
-                          <span key={i} className="text-sm text-gray-300">
-                            {h}
-                          </span>
+                          <span key={i} className="text-sm text-gray-300">{h}</span>
                         ))}
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Logo Preview Tab */}
+            {activeTab === "preview" && (
+              <div className="card-glass rounded-2xl p-8 text-center">
+                <h3 className="text-xl font-semibold mb-4">Preview de Logo</h3>
+                <p className="text-gray-400 mb-6">
+                  Conceptos generados con IA basados en tu estrategia de marca
+                </p>
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                  {logos.map((logo, i) => (
+                    <div key={i} className="card-glass rounded-xl p-4">
+                      <img
+                        src={logo}
+                        alt={`Logo concept ${i + 1}`}
+                        className="w-full h-48 object-contain rounded-lg bg-white"
+                      />
+                      <a
+                        href={logo}
+                        download={`logo-${i + 1}.png`}
+                        className="mt-3 block text-sm text-indigo-400 hover:text-indigo-300"
+                      >
+                        Descargar
+                      </a>
+                    </div>
+                  ))}
+
+                  {generatingLogos && (
+                    <div className="card-glass rounded-xl p-4 flex items-center justify-center h-56">
+                      <div className="text-center">
+                        <div className="w-10 h-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <p className="text-sm text-gray-400">Generando logo...</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {logos.length === 0 && !generatingLogos && (
+                    <div className="col-span-full text-gray-500 py-8">
+                      Click en &quot;Generar Logo&quot; para crear conceptos
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={generateMoreLogos}
+                  disabled={generatingLogos}
+                  className="px-6 py-3 bg-white/10 rounded-xl hover:bg-white/20 transition disabled:opacity-50"
+                >
+                  {generatingLogos ? "Generando..." : "Generar mas variantes"}
+                </button>
               </div>
             )}
 
@@ -607,18 +715,8 @@ export default function Home() {
                 onClick={() => window.print()}
                 className="px-6 py-3 btn-primary rounded-xl transition flex items-center gap-2"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 Descargar PDF
               </button>
@@ -626,6 +724,7 @@ export default function Home() {
                 onClick={() => {
                   setStep("form");
                   setBrandData(null);
+                  setLogos([]);
                 }}
                 className="px-6 py-3 bg-white/10 rounded-xl hover:bg-white/20 transition"
               >
